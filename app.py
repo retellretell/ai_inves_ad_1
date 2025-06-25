@@ -5,7 +5,13 @@ import pandas as pd
 import plotly.express as px
 import yfinance as yf
 
-st.set_page_config(page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide")
+
+
+def main() -> None:
+    """Run the Streamlit application."""
+    st.set_page_config(
+        page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide"
+    )
 
 
 def get_recommended_questions() -> list[str]:
@@ -124,141 +130,145 @@ def extract_ticker_weight(df: pd.DataFrame, ticker: str) -> float | None:
     return weight
 
 
-# Initialize session state
-if "history" not in st.session_state:
-    st.session_state.history = []
+    # Initialize session state
+    if "history" not in st.session_state:
+        st.session_state.history = []
 
-if "portfolio" not in st.session_state:
-    st.session_state.portfolio = pd.DataFrame({"종목": ["TSLA", "AAPL"], "비중(%)": [60, 40]})
+    if "portfolio" not in st.session_state:
+        st.session_state.portfolio = pd.DataFrame({"종목": ["TSLA", "AAPL"], "비중(%)": [60, 40]})
 
-st.title("HyperCLOVA X 기반 AI 투자 어드바이저")
+    st.title("HyperCLOVA X 기반 AI 투자 어드바이저")
 
-# User query and ticker detection
-query = st.text_input("금융 관련 질문을 입력하세요")
-ticker = detect_ticker(query) if query else None
+    # User query and ticker detection
+    query = st.text_input("금융 관련 질문을 입력하세요")
+    ticker = detect_ticker(query) if query else None
 
-recommended = get_recommended_questions()
-cols = st.columns(len(recommended))
-for col, q in zip(cols, recommended):
-    col.button(q)
+    recommended = get_recommended_questions()
+    cols = st.columns(len(recommended))
+    for col, q in zip(cols, recommended):
+        col.button(q)
 
-# Define UI tabs
-tabs = st.tabs(["질문 요약", "주가", "뉴스", "실적", "ESG", "공시", "포트폴리오"])
+    # Define UI tabs
+    tabs = st.tabs(["질문 요약", "주가", "뉴스", "실적", "ESG", "공시", "포트폴리오"])
 
-# Tab 0: summary
-with tabs[0]:
-    if st.button("분석 요청", key="summary"):
-        if query:
-            answer = f"'{query}'에 대한 요약 답변 예시입니다. 시장 상황을 종합 분석했습니다."
-            st.write(answer)
-            st.session_state.history.append((query, answer))
-            if ticker:
-                st.info(f"인식된 종목: {ticker}")
+    # Tab 0: summary
+    with tabs[0]:
+        if st.button("분석 요청", key="summary"):
+            if query:
+                answer = f"'{query}'에 대한 요약 답변 예시입니다. 시장 상황을 종합 분석했습니다."
+                st.write(answer)
+                st.session_state.history.append((query, answer))
+                if ticker:
+                    st.info(f"인식된 종목: {ticker}")
+                else:
+                    st.warning("질문에서 특정 종목을 찾을 수 없습니다.")
             else:
-                st.warning("질문에서 특정 종목을 찾을 수 없습니다.")
-        else:
-            st.warning("질문을 입력해 주세요.")
+                st.warning("질문을 입력해 주세요.")
 
-# Tab 1: price
-with tabs[1]:
-    st.subheader("최근 주가 추이")
-    if ticker:
-        # Pass the period explicitly so it becomes part of the cache key
-        data = get_price_data(ticker, "6mo")
-        if data is None or data.empty or "Close" not in data.columns:
-            st.info("주가 데이터를 가져올 수 없습니다. (데이터 없음/컬럼 문제)")
-        else:
-            try:
-                fig_price = px.line(data, y="Close", title=f"{ticker} 최근 6개월 주가")
-                st.plotly_chart(fig_price, use_container_width=True)
-            except Exception as e:
-                st.warning(f"주가 차트 생성 중 오류가 발생했습니다: {e}")
-
-            if "Return" in data.columns:
+    # Tab 1: price
+    with tabs[1]:
+        st.subheader("최근 주가 추이")
+        if ticker:
+            # Pass the period explicitly so it becomes part of the cache key
+            data = get_price_data(ticker, "6mo")
+            if data is None or data.empty or "Close" not in data.columns:
+                st.info("주가 데이터를 가져올 수 없습니다. (데이터 없음/컬럼 문제)")
+            else:
                 try:
-                    fig_ret = px.line(data, y="Return", title=f"{ticker} 일간 수익률")
-                    st.plotly_chart(fig_ret, use_container_width=True)
+                    fig_price = px.line(data, y="Close", title=f"{ticker} 최근 6개월 주가")
+                    st.plotly_chart(fig_price, use_container_width=True)
                 except Exception as e:
-                    st.warning(f"수익률 차트 생성 중 오류가 발생했습니다: {e}")
-    else:
-        st.info("종목이 인식되지 않았습니다.")
+                    st.warning(f"주가 차트 생성 중 오류가 발생했습니다: {e}")
 
-# Tab 2: news
-with tabs[2]:
-    st.subheader("관련 뉴스")
-    if ticker:
-        for art in get_sample_news(ticker):
-            st.write(f"**{art['title']}** - {art['summary']}")
-    else:
-        st.info("종목이 인식되지 않았습니다.")
-
-# Tab 3: financials
-with tabs[3]:
-    st.subheader("최근 분기 실적")
-    if ticker:
-        fin = get_sample_financials(ticker)
-        st.write(f"EPS: {fin['EPS']}")
-        st.write(f"매출: {fin['매출']}")
-        st.write(f"애널리스트 의견: {fin['의견']}")
-    else:
-        st.info("종목이 인식되지 않았습니다.")
-
-# Tab 4: ESG
-with tabs[4]:
-    st.subheader("ESG 정보")
-    if ticker:
-        esg = get_sample_esg(ticker)
-        st.write(f"ESG 점수: {esg['score']}")
-        st.write(f"주요 논란: {esg['issue']}")
-    else:
-        st.info("종목이 인식되지 않았습니다.")
-
-# Tab 5: filings
-with tabs[5]:
-    st.subheader("SEC 공시 요약")
-    if ticker:
-        st.write(get_sample_filing_summary(ticker))
-    else:
-        st.info("종목이 인식되지 않았습니다.")
-
-# Tab 6: portfolio
-with tabs[6]:
-    st.subheader("보유 종목과 비중 입력")
-    st.session_state.portfolio = st.data_editor(
-        st.session_state.portfolio, num_rows="dynamic", key="portfolio_editor"
-    )
-    st.subheader("포트폴리오 비중 차트")
-    if not st.session_state.portfolio.empty:
-        fig_port = px.pie(
-            st.session_state.portfolio,
-            names="종목",
-            values="비중(%)",
-            hole=0.3,
-        )
-        st.plotly_chart(fig_port, use_container_width=True)
-
-        weights = (
-            pd.to_numeric(st.session_state.portfolio["비중(%)"], errors="coerce")
-            .fillna(0)
-            / 100
-        )
-        risk = (weights ** 2).sum() ** 0.5
-        st.write(f"단순 위험 지표(예시): {risk:.2f}")
-        tsla_weight = extract_ticker_weight(st.session_state.portfolio, "TSLA")
-        if tsla_weight is None:
-            st.info("포트폴리오에 테슬라 종목이 없습니다.")
+                if "Return" in data.columns:
+                    try:
+                        fig_ret = px.line(data, y="Return", title=f"{ticker} 일간 수익률")
+                        st.plotly_chart(fig_ret, use_container_width=True)
+                    except Exception as e:
+                        st.warning(f"수익률 차트 생성 중 오류가 발생했습니다: {e}")
         else:
-            if pd.isna(tsla_weight):
-                st.warning("테슬라 비중을 숫자로 변환할 수 없습니다. 0으로 처리합니다.")
-                tsla_weight = 0.0
-            st.write(f"테슬라 비중: {tsla_weight}%")
-            if tsla_weight > 30:
-                st.warning("테슬라 비중이 높습니다. 분산 투자를 고려해 보세요.")
+            st.info("종목이 인식되지 않았습니다.")
 
-# Sidebar history
-st.sidebar.header("질문/답변 히스토리")
-for idx, (q, a) in enumerate(reversed(st.session_state.history), 1):
-    with st.sidebar.expander(f"대화 {idx}"):
-        st.write(f"**Q:** {q}")
-        st.write(f"**A:** {a}")
+    # Tab 2: news
+    with tabs[2]:
+        st.subheader("관련 뉴스")
+        if ticker:
+            for art in get_sample_news(ticker):
+                st.write(f"**{art['title']}** - {art['summary']}")
+        else:
+            st.info("종목이 인식되지 않았습니다.")
+
+    # Tab 3: financials
+    with tabs[3]:
+        st.subheader("최근 분기 실적")
+        if ticker:
+            fin = get_sample_financials(ticker)
+            st.write(f"EPS: {fin['EPS']}")
+            st.write(f"매출: {fin['매출']}")
+            st.write(f"애널리스트 의견: {fin['의견']}")
+        else:
+            st.info("종목이 인식되지 않았습니다.")
+
+    # Tab 4: ESG
+    with tabs[4]:
+        st.subheader("ESG 정보")
+        if ticker:
+            esg = get_sample_esg(ticker)
+            st.write(f"ESG 점수: {esg['score']}")
+            st.write(f"주요 논란: {esg['issue']}")
+        else:
+            st.info("종목이 인식되지 않았습니다.")
+
+    # Tab 5: filings
+    with tabs[5]:
+        st.subheader("SEC 공시 요약")
+        if ticker:
+            st.write(get_sample_filing_summary(ticker))
+        else:
+            st.info("종목이 인식되지 않았습니다.")
+
+    # Tab 6: portfolio
+    with tabs[6]:
+        st.subheader("보유 종목과 비중 입력")
+        st.session_state.portfolio = st.data_editor(
+            st.session_state.portfolio, num_rows="dynamic", key="portfolio_editor"
+        )
+        st.subheader("포트폴리오 비중 차트")
+        if not st.session_state.portfolio.empty:
+            fig_port = px.pie(
+                st.session_state.portfolio,
+                names="종목",
+                values="비중(%)",
+                hole=0.3,
+            )
+            st.plotly_chart(fig_port, use_container_width=True)
+
+            weights = (
+                pd.to_numeric(st.session_state.portfolio["비중(%)"], errors="coerce")
+                .fillna(0)
+                / 100
+            )
+            risk = (weights ** 2).sum() ** 0.5
+            st.write(f"단순 위험 지표(예시): {risk:.2f}")
+            tsla_weight = extract_ticker_weight(st.session_state.portfolio, "TSLA")
+            if tsla_weight is None:
+                st.info("포트폴리오에 테슬라 종목이 없습니다.")
+            else:
+                if pd.isna(tsla_weight):
+                    st.warning("테슬라 비중을 숫자로 변환할 수 없습니다. 0으로 처리합니다.")
+                    tsla_weight = 0.0
+                st.write(f"테슬라 비중: {tsla_weight}%")
+                if tsla_weight > 30:
+                    st.warning("테슬라 비중이 높습니다. 분산 투자를 고려해 보세요.")
+
+    # Sidebar history
+    st.sidebar.header("질문/답변 히스토리")
+    for idx, (q, a) in enumerate(reversed(st.session_state.history), 1):
+        with st.sidebar.expander(f"대화 {idx}"):
+            st.write(f"**Q:** {q}")
+            st.write(f"**A:** {a}")
+
+
+if __name__ == "__main__":
+    main()
 
