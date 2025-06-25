@@ -1,6 +1,28 @@
 """Improved AI Investor Advisor app with dynamic stock analysis."""
 
-import streamlit as st
+try:
+    import streamlit as st
+except ModuleNotFoundError:  # Allows tests to run without Streamlit installed
+    class _DummyStreamlit:
+        """Minimal stub of Streamlit functions used in tests."""
+
+        @staticmethod
+        def cache_data(func=None, **kwargs):
+            if func is None:
+                def decorator(fn):
+                    return fn
+                return decorator
+            return func
+
+        @staticmethod
+        def warning(*args, **kwargs):
+            pass
+
+        @staticmethod
+        def info(*args, **kwargs):
+            pass
+
+    st = _DummyStreamlit()
 import pandas as pd
 import plotly.express as px
 import yfinance as yf
