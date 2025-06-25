@@ -1,18 +1,31 @@
 """Improved AI Investor Advisor app with dynamic stock analysis."""
 
-import streamlit as st
+try:
+    import streamlit as st
+except ModuleNotFoundError:  # Allows tests to run without Streamlit installed
+    class _DummyStreamlit:
+        """Minimal stub of Streamlit functions used in tests."""
+
+        @staticmethod
+        def cache_data(func=None, **kwargs):
+            if func is None:
+                def decorator(fn):
+                    return fn
+                return decorator
+            return func
+
+        @staticmethod
+        def warning(*args, **kwargs):
+            pass
+
+        @staticmethod
+        def info(*args, **kwargs):
+            pass
+
+    st = _DummyStreamlit()
 import pandas as pd
 import plotly.express as px
 import yfinance as yf
-
-
-
-def main() -> None:
-    """Run the Streamlit application."""
-    st.set_page_config(
-        page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide"
-    )
-
 
 def get_recommended_questions() -> list[str]:
     """Return a list of sample questions for quick access."""
@@ -25,10 +38,21 @@ def get_recommended_questions() -> list[str]:
 
 @st.cache_data
 def load_ticker_map() -> dict[str, str]:
-    """Load CSV mapping of company name variants to tickers."""
-    df = pd.read_csv("tickers.csv")
-    # Normalize name column to lowercase for matching
-    return {name.lower(): tkr for name, tkr in zip(df["name"], df["ticker"])}
+    """Load CSV mapping of company name variants to tickers.
+
+    If the CSV cannot be read, return an example mapping so the app can run
+    without exiting.
+    """
+    example_map = {"테슬라": "TSLA", "애플": "AAPL"}
+    try:
+        df = pd.read_csv("tickers.csv")
+        return {name.lower(): tkr for name, tkr in zip(df["name"], df["ticker"])}
+    except FileNotFoundError:
+        st.warning("tickers.csv 파일을 찾을 수 없습니다. 예시 매핑을 사용합니다.")
+        return example_map
+    except Exception as e:
+        st.warning(f"tickers.csv를 불러오는 중 오류가 발생했습니다: {e}")
+        return example_map
 
 
 # Mapping of Korean/English company names to ticker symbols loaded from CSV
@@ -68,8 +92,9 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
         data = yf.download(ticker, period=period, progress=False, group_by="column")
         # Flatten MultiIndex columns that can result from group_by option
         if isinstance(data.columns, pd.MultiIndex):
-            data = data.droplevel(0, axis=1)
-    except Exception:
+            data.columns = data.columns.get_level_values(0)
+    except Exception as e:
+        st.warning(f"주가 데이터를 가져오는 중 오류가 발생했습니다: {e}")
         return None
     if data.empty:
         return None
@@ -130,13 +155,23 @@ def extract_ticker_weight(df: pd.DataFrame, ticker: str) -> float | None:
     ticker: str
         Ticker symbol to extract weight for.
     """
-    if ticker not in df["종목"].values:
+    try:
+        if ticker not in df["종목"].values:
+            return None
+        weight = pd.to_numeric(
+            df.loc[df["종목"] == ticker, "비중(%)"].iloc[0], errors="coerce"
+        )
+        return weight
+    except KeyError:
+        st.warning("포트폴리오 데이터에 필요한 컬럼이 없습니다.")
         return None
-    weight = pd.to_numeric(
-        df.loc[df["종목"] == ticker, "비중(%)"].iloc[0], errors="coerce"
-    )
-    return weight
 
+
+def main() -> None:
+    """Run the Streamlit application."""
+    st.set_page_config(
+        page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide"
+    )
 
     # Initialize session state
     if "history" not in st.session_state:
