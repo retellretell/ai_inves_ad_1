@@ -18,3 +18,13 @@ def test_get_price_data_flattens_and_returns(monkeypatch):
     assert "Return" in data.columns
     expected = (3 - 2) / 2
     assert data["Return"].iloc[1] == pytest.approx(expected)
+
+
+def test_get_price_data_returns_none_on_empty(monkeypatch):
+    def fake_download(ticker, period="6mo", progress=False, group_by="column"):
+        return pd.DataFrame()
+
+    monkeypatch.setattr(yf, "download", fake_download)
+    data = get_price_data("AAPL")
+
+    assert data is None
