@@ -1,11 +1,30 @@
 """Improved AI Investor Advisor app with dynamic stock analysis."""
 
+from typing import Optional, List, Dict
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import yfinance as yf
 
 st.set_page_config(page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide")
+
+# Increase base font sizes for better readability on desktop and mobile
+st.markdown(
+    """
+    <style>
+        .stApp {
+            font-size: 16px;
+        }
+        @media (max-width: 768px) {
+            .stApp {
+                font-size: 18px;
+            }
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # Mapping of Korean/English company names to ticker symbols
 TICKER_MAP = {
@@ -18,7 +37,7 @@ TICKER_MAP = {
 }
 
 
-def detect_ticker(text: str) -> str | None:
+def detect_ticker(text: str) -> Optional[str]:
     """Return ticker symbol if company name or ticker is in text."""
     if not text:
         return None
@@ -29,15 +48,26 @@ def detect_ticker(text: str) -> str | None:
     return None
 
 
-def get_price_data(ticker: str) -> pd.DataFrame:
+def get_price_data(ticker: str) -> Optional[pd.DataFrame]:
     """Download recent price data using yfinance."""
-    data = yf.download(ticker, period="6mo", progress=False)
-    if not data.empty:
+    try:
+        data = yf.download(ticker, period="6mo", progress=False)
+    except Exception:
+        return None
+
+    if data is None or data.empty:
+        return data
+
+    if isinstance(data.columns, pd.MultiIndex):
+        data.columns = data.columns.get_level_values(0)
+
+    if "Close" in data.columns:
         data["Return"] = data["Close"].pct_change()
+
     return data
 
 
-def get_sample_news(ticker: str) -> list[dict[str, str]]:
+def get_sample_news(ticker: str) -> List[Dict[str, str]]:
     """Provide sample news for the given ticker."""
     sample_news = {
         "TSLA": [
@@ -52,7 +82,7 @@ def get_sample_news(ticker: str) -> list[dict[str, str]]:
     return sample_news.get(ticker, [{"title": "관련 뉴스 없음", "summary": "표시할 뉴스가 없습니다."}])
 
 
-def get_sample_financials(ticker: str) -> dict[str, str]:
+def get_sample_financials(ticker: str) -> Dict[str, str]:
     """Return sample quarterly financial data."""
     data = {
         "TSLA": {"EPS": "0.85", "매출": "243억 달러", "의견": "매수 우세"},
@@ -61,7 +91,7 @@ def get_sample_financials(ticker: str) -> dict[str, str]:
     return data.get(ticker, {"EPS": "-", "매출": "-", "의견": "정보 없음"})
 
 
-def get_sample_esg(ticker: str) -> dict[str, str]:
+def get_sample_esg(ticker: str) -> Dict[str, str]:
     """Return sample ESG score and issues."""
     esg = {
         "TSLA": {"score": "BBB", "issue": "자원 조달 과정 투명성 논란"},
@@ -79,6 +109,16 @@ def get_sample_filing_summary(ticker: str) -> str:
     return filings.get(ticker, "관련 공시 요약이 없습니다.")
 
 
+def get_recommended_questions() -> List[str]:
+    """Return a few example questions based on recent market trends."""
+    today = pd.Timestamp("today").strftime("%Y-%m-%d")
+    return [
+        f"{today} 기준 미국 증시 전망은?",
+        "미국 금리 인상 가능성이 주가에 미칠 영향은?",
+        "테슬라 실적 발표 후 전망은?",
+    ]
+
+
 # Initialize session state
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -86,10 +126,24 @@ if "history" not in st.session_state:
 if "portfolio" not in st.session_state:
     st.session_state.portfolio = pd.DataFrame({"종목": ["TSLA", "AAPL"], "비중(%)": [60, 40]})
 
+if "auto_submit" not in st.session_state:
+    st.session_state.auto_submit = False
+
+if "user_query" not in st.session_state:
+    st.session_state.user_query = ""
+
 st.title("HyperCLOVA X 기반 AI 투자 어드바이저")
 
-# User query and ticker detection
-query = st.text_input("금융 관련 질문을 입력하세요")
+# User query and recommended questions
+query = st.text_input("금융 관련 질문을 입력하세요", key="user_query")
+
+cols = st.columns(len(get_recommended_questions()))
+for i, rq in enumerate(get_recommended_questions()):
+    if cols[i].button(rq, key=f"rec_{i}"):
+        st.session_state.user_query = rq
+        st.session_state.auto_submit = True
+
+query = st.session_state.user_query
 ticker = detect_ticker(query) if query else None
 
 # Define UI tabs
@@ -97,7 +151,9 @@ tabs = st.tabs(["질문 요약", "주가", "뉴스", "실적", "ESG", "공시", 
 
 # Tab 0: summary
 with tabs[0]:
-    if st.button("분석 요청", key="summary"):
+    auto = st.session_state.auto_submit
+    if st.button("분석 요청", key="summary") or auto:
+        st.session_state.auto_submit = False
         if query:
             answer = f"'{query}'에 대한 요약 답변 예시입니다. 시장 상황을 종합 분석했습니다."
             st.write(answer)
@@ -114,13 +170,21 @@ with tabs[1]:
     st.subheader("최근 주가 추이")
     if ticker:
         data = get_price_data(ticker)
-        if not data.empty:
-            fig_price = px.line(data, y="Close", title=f"{ticker} 최근 6개월 주가")
-            st.plotly_chart(fig_price, use_container_width=True)
-            fig_ret = px.line(data, y="Return", title=f"{ticker} 일간 수익률")
-            st.plotly_chart(fig_ret, use_container_width=True)
+        if data is None or data.empty or "Close" not in data.columns:
+            st.info("주가 데이터를 가져올 수 없습니다. (데이터 없음/컬럼 문제)")
         else:
-            st.info("주가 데이터를 가져올 수 없습니다.")
+            try:
+                fig_price = px.line(data, y="Close", title=f"{ticker} 최근 6개월 주가")
+                st.plotly_chart(fig_price, use_container_width=True)
+            except Exception as e:
+                st.warning(f"주가 차트 생성 중 오류가 발생했습니다: {e}")
+
+            if "Return" in data.columns:
+                try:
+                    fig_ret = px.line(data, y="Return", title=f"{ticker} 일간 수익률")
+                    st.plotly_chart(fig_ret, use_container_width=True)
+                except Exception as e:
+                    st.warning(f"수익률 차트 생성 중 오류가 발생했습니다: {e}")
     else:
         st.info("종목이 인식되지 않았습니다.")
 
