@@ -41,10 +41,19 @@ def detect_ticker(text: str) -> str | None:
 
 
 @st.cache_data
-def get_price_data(ticker: str) -> pd.DataFrame | None:
-    """Download recent price data using yfinance."""
+def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
+    """Download recent price data using yfinance.
+
+    Parameters
+    ----------
+    ticker: str
+        Stock ticker symbol to download.
+    period: str, optional
+        Time period for historical data (e.g. "1y", "6mo").
+        Included in the cache key so different periods are cached separately.
+    """
     try:
-        data = yf.download(ticker, period="6mo", progress=False, group_by="column")
+        data = yf.download(ticker, period=period, progress=False, group_by="column")
         # Flatten MultiIndex columns that can result from group_by option
         if isinstance(data.columns, pd.MultiIndex):
             data = data.droplevel(0, axis=1)
@@ -136,7 +145,8 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("최근 주가 추이")
     if ticker:
-        data = get_price_data(ticker)
+        # Pass the period explicitly so it becomes part of the cache key
+        data = get_price_data(ticker, "6mo")
         if data is None or data.empty or "Close" not in data.columns:
             st.info("주가 데이터를 가져올 수 없습니다. (데이터 없음/컬럼 문제)")
         else:

@@ -18,3 +18,6 @@ streamlit run app.py
 
 This app provides sample data for demonstration purposes only and is **not** financial advice. Actual market information may be delayed or inaccurate, so use the insights with caution.
 
+The function that retrieves price data uses `st.cache_data` so repeated requests
+for the same ticker and time period do not trigger additional network calls.
+
