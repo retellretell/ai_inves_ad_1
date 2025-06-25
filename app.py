@@ -7,15 +7,17 @@ import yfinance as yf
 
 st.set_page_config(page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide")
 
-# Mapping of Korean/English company names to ticker symbols
-TICKER_MAP = {
-    "테슬라": "TSLA",
-    "tesla": "TSLA",
-    "애플": "AAPL",
-    "apple": "AAPL",
-    "삼성전자": "005930.KS",
-    "카카오": "035720.KS",
-}
+
+@st.cache_data
+def load_ticker_map() -> dict[str, str]:
+    """Load CSV mapping of company name variants to tickers."""
+    df = pd.read_csv("tickers.csv")
+    # Normalize name column to lowercase for matching
+    return {name.lower(): tkr for name, tkr in zip(df["name"], df["ticker"])}
+
+
+# Mapping of Korean/English company names to ticker symbols loaded from CSV
+TICKER_MAP = load_ticker_map()
 
 
 def detect_ticker(text: str) -> str | None:
