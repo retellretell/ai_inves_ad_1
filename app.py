@@ -90,7 +90,8 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
     """
     try:
         data = yf.download(ticker, period=period, progress=False, group_by="column")
-        # Flatten MultiIndex columns that can result from group_by option
+        # Plotly expects plain string column names. Flatten MultiIndex columns
+        # returned by yfinance and keep only the first level such as "Close".
         if isinstance(data.columns, pd.MultiIndex):
             data.columns = data.columns.get_level_values(0)
     except Exception as e:
