@@ -93,8 +93,7 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
         # Flatten MultiIndex columns that can result from group_by option
         if isinstance(data.columns, pd.MultiIndex):
             data.columns = data.columns.get_level_values(0)
-    except Exception as e:
-        st.warning(f"주가 데이터를 가져오는 중 오류가 발생했습니다: {e}")
+
         return None
     if data.empty:
         return None
