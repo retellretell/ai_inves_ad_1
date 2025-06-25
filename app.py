@@ -229,9 +229,20 @@ with tabs[5]:
 # Tab 6: portfolio
 with tabs[6]:
     st.subheader("보유 종목과 비중 입력")
-    st.session_state.portfolio = st.data_editor(
-        st.session_state.portfolio, num_rows="dynamic", key="portfolio_editor"
-    )
+
+    def edit_portfolio(df: pd.DataFrame) -> pd.DataFrame:
+        """Display an editable table with fallback for older Streamlit versions."""
+        if hasattr(st, "data_editor"):
+            return st.data_editor(df, num_rows="dynamic", key="portfolio_editor")
+        if hasattr(st, "experimental_data_editor"):
+            return st.experimental_data_editor(
+                df, num_rows="dynamic", key="portfolio_editor"
+            )
+        st.write("현재 Streamlit 버전에서 데이터 편집 기능을 사용할 수 없습니다.")
+        st.dataframe(df)
+        return df
+
+    st.session_state.portfolio = edit_portfolio(st.session_state.portfolio)
     st.subheader("포트폴리오 비중 차트")
     if not st.session_state.portfolio.empty:
         fig_port = px.pie(
