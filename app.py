@@ -35,8 +35,16 @@ def get_price_data(ticker: str) -> pd.DataFrame | None:
         data = yf.download(ticker, period="6mo", progress=False)
     except Exception:
         return None
-    if not data.empty and "Close" in data.columns:
+
+    if data is None or data.empty:
+        return data
+
+    if isinstance(data.columns, pd.MultiIndex):
+        data.columns = data.columns.get_level_values(0)
+
+    if "Close" in data.columns:
         data["Return"] = data["Close"].pct_change()
+
     return data
 
 
