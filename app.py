@@ -178,7 +178,11 @@ with tabs[6]:
         )
         st.plotly_chart(fig_port, use_container_width=True)
 
-        weights = st.session_state.portfolio["비중(%)"].astype(float) / 100
+        weights = (
+            pd.to_numeric(st.session_state.portfolio["비중(%)"], errors="coerce")
+            .fillna(0)
+            / 100
+        )
         risk = (weights ** 2).sum() ** 0.5
         st.write(f"단순 위험 지표(예시): {risk:.2f}")
         if "TSLA" in st.session_state.portfolio["종목"].values:
