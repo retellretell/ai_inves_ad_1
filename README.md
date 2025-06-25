@@ -20,6 +20,14 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## Running Tests
+
+Execute the test suite with [pytest](https://pytest.org/):
+
+```bash
+pytest
+```
+
 ## Additional Usage Notes
 
 Price charts rely on live market data from Yahoo Finance. Ensure the app has
