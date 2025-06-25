@@ -68,7 +68,7 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
         data = yf.download(ticker, period=period, progress=False, group_by="column")
         # Flatten MultiIndex columns that can result from group_by option
         if isinstance(data.columns, pd.MultiIndex):
-            data = data.droplevel(0, axis=1)
+            data.columns = data.columns.get_level_values(0)
     except Exception:
         return None
     if data.empty:
