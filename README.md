@@ -14,6 +14,13 @@ AI investor advisor is a Streamlit application that analyzes stock information a
 pip install -r requirements.txt
 ```
 
+The key dependencies are pinned for reproducible installs:
+
+- `streamlit==1.35.0`
+- `pandas==2.2.2`
+- `plotly==5.21.0`
+- `yfinance==0.2.37`
+
 ## Usage
 
 ```bash
