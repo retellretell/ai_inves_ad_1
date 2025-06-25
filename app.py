@@ -106,6 +106,24 @@ def get_sample_filing_summary(ticker: str) -> str:
     return filings.get(ticker, "관련 공시 요약이 없습니다.")
 
 
+def extract_ticker_weight(df: pd.DataFrame, ticker: str) -> float | None:
+    """Return weight for ticker or NaN if conversion fails.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Portfolio dataframe with columns ``종목`` and ``비중(%)``.
+    ticker: str
+        Ticker symbol to extract weight for.
+    """
+    if ticker not in df["종목"].values:
+        return None
+    weight = pd.to_numeric(
+        df.loc[df["종목"] == ticker, "비중(%)"].iloc[0], errors="coerce"
+    )
+    return weight
+
+
 # Initialize session state
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -226,10 +244,13 @@ with tabs[6]:
         )
         risk = (weights ** 2).sum() ** 0.5
         st.write(f"단순 위험 지표(예시): {risk:.2f}")
-        if "TSLA" in st.session_state.portfolio["종목"].values:
-            tsla_weight = st.session_state.portfolio.loc[
-                st.session_state.portfolio["종목"] == "TSLA", "비중(%)"
-            ].astype(float).values[0]
+        tsla_weight = extract_ticker_weight(st.session_state.portfolio, "TSLA")
+        if tsla_weight is None:
+            st.info("포트폴리오에 테슬라 종목이 없습니다.")
+        else:
+            if pd.isna(tsla_weight):
+                st.warning("테슬라 비중을 숫자로 변환할 수 없습니다. 0으로 처리합니다.")
+                tsla_weight = 0.0
             st.write(f"테슬라 비중: {tsla_weight}%")
             if tsla_weight > 30:
                 st.warning("테슬라 비중이 높습니다. 분산 투자를 고려해 보세요.")
