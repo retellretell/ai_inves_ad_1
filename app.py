@@ -8,6 +8,15 @@ import yfinance as yf
 st.set_page_config(page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide")
 
 
+def get_recommended_questions() -> list[str]:
+    """Return a list of sample questions for quick access."""
+    return [
+        "테슬라 전망은?",
+        "애플 실적 요약은?",
+        "금리 인상 영향은?",
+    ]
+
+
 @st.cache_data
 def load_ticker_map() -> dict[str, str]:
     """Load CSV mapping of company name variants to tickers."""
@@ -100,6 +109,11 @@ st.title("HyperCLOVA X 기반 AI 투자 어드바이저")
 # User query and ticker detection
 query = st.text_input("금융 관련 질문을 입력하세요")
 ticker = detect_ticker(query) if query else None
+
+recommended = get_recommended_questions()
+cols = st.columns(len(recommended))
+for col, q in zip(cols, recommended):
+    col.button(q)
 
 # Define UI tabs
 tabs = st.tabs(["질문 요약", "주가", "뉴스", "실적", "ESG", "공시", "포트폴리오"])
