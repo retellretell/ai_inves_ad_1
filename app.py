@@ -212,7 +212,9 @@ def main() -> None:
         st.session_state.history = []
 
     if "portfolio" not in st.session_state:
-        st.session_state.portfolio = pd.DataFrame({"종목": ["TSLA", "AAPL"], "비중(%)": [60, 40]})
+        st.session_state.portfolio = pd.DataFrame(
+            {"종목": ["TSLA", "AAPL"], "비중(%)": [60, 40]}
+        )
 
     st.title("HyperCLOVA X 기반 AI 투자 어드바이저")
 
