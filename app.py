@@ -5,15 +5,6 @@ import pandas as pd
 import plotly.express as px
 import yfinance as yf
 
-
-
-def main() -> None:
-    """Run the Streamlit application."""
-    st.set_page_config(
-        page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide"
-    )
-
-
 def get_recommended_questions() -> list[str]:
     """Return a list of sample questions for quick access."""
     return [
@@ -137,6 +128,12 @@ def extract_ticker_weight(df: pd.DataFrame, ticker: str) -> float | None:
     )
     return weight
 
+
+def main() -> None:
+    """Run the Streamlit application."""
+    st.set_page_config(
+        page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide"
+    )
 
     # Initialize session state
     if "history" not in st.session_state:
