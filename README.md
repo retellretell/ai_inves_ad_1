@@ -14,3 +14,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## Disclaimer
+
+This app provides sample data for demonstration purposes only and is **not** financial advice. Actual market information may be delayed or inaccurate, so use the insights with caution.
+
