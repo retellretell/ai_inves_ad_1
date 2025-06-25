@@ -2,6 +2,12 @@
 
 AI investor advisor is a Streamlit application that analyzes stock information and provides example investment insights.
 
+## Features
+
+- **Daily recommended questions** appear as buttons for quick access.
+- Clicking a recommendation automatically runs the analysis and fills the query field.
+- **Responsive font sizes** are tuned for desktop and mobile viewing.
+
 ## Installation
 
 ```bash
@@ -13,6 +19,11 @@ pip install -r requirements.txt
 ```bash
 streamlit run app.py
 ```
+
+## Additional Usage Notes
+
+Price charts rely on live market data from Yahoo Finance. Ensure the app has
+network access so that `yfinance` can download the latest prices.
 
 ## Disclaimer
 
