@@ -29,6 +29,7 @@ def detect_ticker(text: str) -> str | None:
     return None
 
 
+@st.cache_data
 def get_price_data(ticker: str) -> pd.DataFrame | None:
     """Download recent price data using yfinance."""
     try:
