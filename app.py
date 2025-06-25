@@ -29,10 +29,13 @@ def detect_ticker(text: str) -> str | None:
     return None
 
 
-def get_price_data(ticker: str) -> pd.DataFrame:
+def get_price_data(ticker: str) -> pd.DataFrame | None:
     """Download recent price data using yfinance."""
-    data = yf.download(ticker, period="6mo", progress=False)
-    if not data.empty:
+    try:
+        data = yf.download(ticker, period="6mo", progress=False)
+    except Exception:
+        return None
+    if not data.empty and "Close" in data.columns:
         data["Return"] = data["Close"].pct_change()
     return data
 
@@ -114,13 +117,21 @@ with tabs[1]:
     st.subheader("최근 주가 추이")
     if ticker:
         data = get_price_data(ticker)
-        if not data.empty:
-            fig_price = px.line(data, y="Close", title=f"{ticker} 최근 6개월 주가")
-            st.plotly_chart(fig_price, use_container_width=True)
-            fig_ret = px.line(data, y="Return", title=f"{ticker} 일간 수익률")
-            st.plotly_chart(fig_ret, use_container_width=True)
+        if data is None or data.empty or "Close" not in data.columns:
+            st.info("주가 데이터를 가져올 수 없습니다. (데이터 없음/컬럼 문제)")
         else:
-            st.info("주가 데이터를 가져올 수 없습니다.")
+            try:
+                fig_price = px.line(data, y="Close", title=f"{ticker} 최근 6개월 주가")
+                st.plotly_chart(fig_price, use_container_width=True)
+            except Exception as e:
+                st.warning(f"주가 차트 생성 중 오류가 발생했습니다: {e}")
+
+            if "Return" in data.columns:
+                try:
+                    fig_ret = px.line(data, y="Return", title=f"{ticker} 일간 수익률")
+                    st.plotly_chart(fig_ret, use_container_width=True)
+                except Exception as e:
+                    st.warning(f"수익률 차트 생성 중 오류가 발생했습니다: {e}")
     else:
         st.info("종목이 인식되지 않았습니다.")
 
