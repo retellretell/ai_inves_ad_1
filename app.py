@@ -1,172 +1,169 @@
-"""
-HyperCLOVA X 기반 AI 투자 어드바이저 샘플 앱
-주요 기능:
- - 대화형 질의응답
- - 한국어 초장문 요약
- - 금융 리포트 자동 생성
- - 공시 번역/해설
- - 이미지(멀티모달) 분석
-"""
+"""Improved AI Investor Advisor app with dynamic stock analysis."""
 
 import streamlit as st
-import requests
 import pandas as pd
 import plotly.express as px
-from PIL import Image
+import yfinance as yf
 
-st.set_page_config(page_title="HyperCLOVA X 기반 AI 투자 어드바이저")
+st.set_page_config(page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide")
 
+# Mapping of Korean/English company names to ticker symbols
+TICKER_MAP = {
+    "테슬라": "TSLA",
+    "tesla": "TSLA",
+    "애플": "AAPL",
+    "apple": "AAPL",
+    "삼성전자": "005930.KS",
+    "카카오": "035720.KS",
+}
+
+
+def detect_ticker(text: str) -> str | None:
+    """Return ticker symbol if company name or ticker is in text."""
+    if not text:
+        return None
+    text_low = text.lower()
+    for key, tkr in TICKER_MAP.items():
+        if key in text_low or tkr.lower() in text_low:
+            return tkr
+    return None
+
+
+def get_price_data(ticker: str) -> pd.DataFrame:
+    """Download recent price data using yfinance."""
+    data = yf.download(ticker, period="6mo", progress=False)
+    if not data.empty:
+        data["Return"] = data["Close"].pct_change()
+    return data
+
+
+def get_sample_news(ticker: str) -> list[dict[str, str]]:
+    """Provide sample news for the given ticker."""
+    sample_news = {
+        "TSLA": [
+            {"title": "Tesla launches new model", "summary": "The new EV is expected to expand market share."},
+            {"title": "Analysts positive on Tesla", "summary": "Wall Street sees potential growth in energy business."},
+        ],
+        "AAPL": [
+            {"title": "Apple reveals new iPhone", "summary": "The device includes a faster chip and better camera."},
+            {"title": "Apple services revenue rises", "summary": "Subscription business continues to grow."},
+        ],
+    }
+    return sample_news.get(ticker, [{"title": "관련 뉴스 없음", "summary": "표시할 뉴스가 없습니다."}])
+
+
+def get_sample_financials(ticker: str) -> dict[str, str]:
+    """Return sample quarterly financial data."""
+    data = {
+        "TSLA": {"EPS": "0.85", "매출": "243억 달러", "의견": "매수 우세"},
+        "AAPL": {"EPS": "1.20", "매출": "830억 달러", "의견": "보유"},
+    }
+    return data.get(ticker, {"EPS": "-", "매출": "-", "의견": "정보 없음"})
+
+
+def get_sample_esg(ticker: str) -> dict[str, str]:
+    """Return sample ESG score and issues."""
+    esg = {
+        "TSLA": {"score": "BBB", "issue": "자원 조달 과정 투명성 논란"},
+        "AAPL": {"score": "AA", "issue": "공급망 노동 환경 이슈"},
+    }
+    return esg.get(ticker, {"score": "-", "issue": "정보 없음"})
+
+
+def get_sample_filing_summary(ticker: str) -> str:
+    """Return a short summary of a sample SEC filing."""
+    filings = {
+        "TSLA": "Tesla의 최근 10-K 보고서에서는 전기차 수요 증가와 배터리 사업 확대 계획이 강조되었습니다.",
+        "AAPL": "Apple의 10-K 보고서는 서비스 부문 성장과 자사주 매입 계획을 주요 내용으로 포함하고 있습니다.",
+    }
+    return filings.get(ticker, "관련 공시 요약이 없습니다.")
+
+
+# Initialize session state
 if "history" not in st.session_state:
     st.session_state.history = []
+
 if "portfolio" not in st.session_state:
-    st.session_state.portfolio = pd.DataFrame({
-        "종목": ["삼성전자", "카카오"],
-        "비중(%)": [50, 50],
-    })
+    st.session_state.portfolio = pd.DataFrame({"종목": ["TSLA", "AAPL"], "비중(%)": [60, 40]})
 
 st.title("HyperCLOVA X 기반 AI 투자 어드바이저")
-st.caption("예시: 미국 금리 전망, 삼성전자 ESG 리스크, 내 포트폴리오 영향")
 
+# User query and ticker detection
 query = st.text_input("금융 관련 질문을 입력하세요")
+ticker = detect_ticker(query) if query else None
 
-tabs = st.tabs([
-    "질문 결과",
-    "초장문 요약",
-    "리포트 작성",
-    "공시 번역/해설",
-    "이미지 분석",
-    "포트폴리오 분석",
-])
+# Define UI tabs
+tabs = st.tabs(["질문 요약", "주가", "뉴스", "실적", "ESG", "공시", "포트폴리오"])
 
+# Tab 0: summary
 with tabs[0]:
-    if st.button("분석 요청", key="qna"):
+    if st.button("분석 요청", key="summary"):
         if query:
-            # HyperCLOVA X API 호출 예시 (주석 처리)
-            # response = requests.post(
-            #     "https://clova.api.naver.com/HyperCLOVAX",
-            #     headers={"Authorization": "Bearer YOUR_TOKEN"},
-            #     json={"prompt": query}
-            # )
-            # answer = response.json().get("result")
-            answer = (
-                f"'{query}' 에 대한 요약 답변 예시입니다. 시장 상황을 종합적으로 분석한 내용이 여기에 표시됩니다."
-            )
-            st.session_state.history.append((query, answer))
-
-            st.subheader("요약 답변")
+            answer = f"'{query}'에 대한 요약 답변 예시입니다. 시장 상황을 종합 분석했습니다."
             st.write(answer)
-
-            st.subheader("환율/주가 추이")
-            df = pd.DataFrame({
-                "날짜": pd.date_range(end=pd.Timestamp.today(), periods=7),
-                "USD/KRW": [1310, 1320, 1315, 1325, 1330, 1322, 1328],
-            })
-            fig = px.line(df, x="날짜", y="USD/KRW", title="최근 원달러 환율 추이")
-            st.plotly_chart(fig, use_container_width=True)
-
-            esg_tab, news_tab, impact_tab = st.tabs(
-                ["ESG 분석", "최신 금융 뉴스 요약", "시장 영향 분석"]
-            )
-            with esg_tab:
-                st.write(
-                    "삼성전자는 친환경 경영을 강화하고 있으나 공급망 투명성은 추가 개선이 필요하다는 평가를 받고 있습니다."
-                )
-            with news_tab:
-                try:
-                    resp = requests.get("https://example.com/api/news")
-                    news_data = resp.json()
-                except Exception:
-                    news_data = {
-                        "articles": [
-                            {"title": "금융 뉴스 1", "summary": "금융 뉴스 1 요약입니다."},
-                            {"title": "금융 뉴스 2", "summary": "금융 뉴스 2 요약입니다."},
-                            {"title": "금융 뉴스 3", "summary": "금융 뉴스 3 요약입니다."},
-                        ]
-                    }
-                for art in news_data["articles"][:3]:
-                    st.write(f"**{art['title']}** - {art['summary']}")
-            with impact_tab:
-                st.write(
-                    "금리와 환율 변동이 포트폴리오에 미치는 영향에 대한 예시 분석 내용입니다."
-                )
+            st.session_state.history.append((query, answer))
+            if ticker:
+                st.info(f"인식된 종목: {ticker}")
+            else:
+                st.warning("질문에서 특정 종목을 찾을 수 없습니다.")
         else:
-            st.warning("질문을 입력해 주세요")
+            st.warning("질문을 입력해 주세요.")
 
+# Tab 1: price
 with tabs[1]:
-    st.subheader("긴 한국어 기사/공시 입력")
-    long_text = st.text_area("5천자 이상의 텍스트도 요약 가능합니다.", height=200)
-    if st.button("HyperCLOVA X 요약", key="long_summary"):
-        if long_text:
-            # HyperCLOVA X 초장문 요약 API 예시
-            # response = requests.post(
-            #     "https://clova.api.naver.com/hyperclovax/summary",
-            #     headers={"Authorization": "Bearer YOUR_TOKEN"},
-            #     json={"document": long_text},
-            # )
-            # summary = response.json()["summary"]
-            summary = "입력된 장문의 한국어 텍스트를 요약한 예시 결과입니다."
-            st.session_state.history.append(("장문 요약", summary))
-            st.write(summary)
+    st.subheader("최근 주가 추이")
+    if ticker:
+        data = get_price_data(ticker)
+        if not data.empty:
+            fig_price = px.line(data, y="Close", title=f"{ticker} 최근 6개월 주가")
+            st.plotly_chart(fig_price, use_container_width=True)
+            fig_ret = px.line(data, y="Return", title=f"{ticker} 일간 수익률")
+            st.plotly_chart(fig_ret, use_container_width=True)
         else:
-            st.warning("텍스트를 입력해 주세요")
+            st.info("주가 데이터를 가져올 수 없습니다.")
+    else:
+        st.info("종목이 인식되지 않았습니다.")
 
+# Tab 2: news
 with tabs[2]:
-    company = st.text_input("기업명을 입력하세요", value="삼성전자")
-    if st.button("리포트 생성", key="report"):
-        # HyperCLOVA X 리포트 생성 API 예시
-        # response = requests.post(
-        #     "https://clova.api.naver.com/hyperclovax/report",
-        #     headers={"Authorization": "Bearer YOUR_TOKEN"},
-        #     json={"company": company},
-        # )
-        # report = response.json()["result"]
-        report = (
-            f"{company} 투자분석 리포트 예시입니다. 핵심 포인트와 리스크가 정리되어 있습니다."
-        )
-        st.session_state.history.append((f"{company} 리포트", report))
-        st.write(report)
+    st.subheader("관련 뉴스")
+    if ticker:
+        for art in get_sample_news(ticker):
+            st.write(f"**{art['title']}** - {art['summary']}")
+    else:
+        st.info("종목이 인식되지 않았습니다.")
 
+# Tab 3: financials
 with tabs[3]:
-    notice = st.text_area("영문 공시 또는 외신 입력", height=150)
-    if st.button("번역 및 해설", key="notice"):
-        if notice:
-            # HyperCLOVA X 번역/해설 API 예시
-            # response = requests.post(
-            #     "https://clova.api.naver.com/hyperclovax/translate",
-            #     headers={"Authorization": "Bearer YOUR_TOKEN"},
-            #     json={"text": notice},
-            # )
-            # translation = response.json()["translation"]
-            translation = "공시 번역본 예시"
-            commentary = "투자자 관점 해설 예시입니다."
-            st.session_state.history.append(("공시 해설", translation + commentary))
-            st.write("**번역 결과**")
-            st.write(translation)
-            st.write("**해설**")
-            st.write(commentary)
-        else:
-            st.warning("영문 텍스트를 입력해 주세요")
+    st.subheader("최근 분기 실적")
+    if ticker:
+        fin = get_sample_financials(ticker)
+        st.write(f"EPS: {fin['EPS']}")
+        st.write(f"매출: {fin['매출']}")
+        st.write(f"애널리스트 의견: {fin['의견']}")
+    else:
+        st.info("종목이 인식되지 않았습니다.")
 
+# Tab 4: ESG
 with tabs[4]:
-    uploaded = st.file_uploader("IR 슬라이드 이미지 업로드", type=["png", "jpg", "jpeg"])
-    if st.button("이미지 분석", key="image"):
-        if uploaded:
-            image = Image.open(uploaded)
-            st.image(image, caption="업로드한 이미지")
-            # HyperCLOVA X 멀티모달 분석 API 예시
-            # response = requests.post(
-            #     "https://clova.api.naver.com/hyperclovax/image-summary",
-            #     headers={"Authorization": "Bearer YOUR_TOKEN"},
-            #     files={"image": uploaded.getvalue()},
-            # )
-            # analysis = response.json()["summary"]
-            analysis = "이미지 속 핵심 텍스트와 내용을 요약한 예시입니다."
-            st.session_state.history.append(("이미지 분석", analysis))
-            st.write(analysis)
-        else:
-            st.warning("이미지를 업로드해 주세요")
+    st.subheader("ESG 정보")
+    if ticker:
+        esg = get_sample_esg(ticker)
+        st.write(f"ESG 점수: {esg['score']}")
+        st.write(f"주요 논란: {esg['issue']}")
+    else:
+        st.info("종목이 인식되지 않았습니다.")
 
+# Tab 5: filings
 with tabs[5]:
+    st.subheader("SEC 공시 요약")
+    if ticker:
+        st.write(get_sample_filing_summary(ticker))
+    else:
+        st.info("종목이 인식되지 않았습니다.")
+
+# Tab 6: portfolio
+with tabs[6]:
     st.subheader("보유 종목과 비중 입력")
     st.session_state.portfolio = st.data_editor(
         st.session_state.portfolio, num_rows="dynamic", key="portfolio_editor"
@@ -181,8 +178,21 @@ with tabs[5]:
         )
         st.plotly_chart(fig_port, use_container_width=True)
 
+        weights = st.session_state.portfolio["비중(%)"].astype(float) / 100
+        risk = (weights ** 2).sum() ** 0.5
+        st.write(f"단순 위험 지표(예시): {risk:.2f}")
+        if "TSLA" in st.session_state.portfolio["종목"].values:
+            tsla_weight = st.session_state.portfolio.loc[
+                st.session_state.portfolio["종목"] == "TSLA", "비중(%)"
+            ].astype(float).values[0]
+            st.write(f"테슬라 비중: {tsla_weight}%")
+            if tsla_weight > 30:
+                st.warning("테슬라 비중이 높습니다. 분산 투자를 고려해 보세요.")
+
+# Sidebar history
 st.sidebar.header("질문/답변 히스토리")
 for idx, (q, a) in enumerate(reversed(st.session_state.history), 1):
     with st.sidebar.expander(f"대화 {idx}"):
         st.write(f"**Q:** {q}")
         st.write(f"**A:** {a}")
+
