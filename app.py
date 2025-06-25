@@ -5,15 +5,6 @@ import pandas as pd
 import plotly.express as px
 import yfinance as yf
 
-
-
-def main() -> None:
-    """Run the Streamlit application."""
-    st.set_page_config(
-        page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide"
-    )
-
-
 def get_recommended_questions() -> list[str]:
     """Return a list of sample questions for quick access."""
     return [
@@ -68,7 +59,7 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
         data = yf.download(ticker, period=period, progress=False, group_by="column")
         # Flatten MultiIndex columns that can result from group_by option
         if isinstance(data.columns, pd.MultiIndex):
-            data = data.droplevel(0, axis=1)
+            data.columns = data.columns.get_level_values(0)
     except Exception:
         return None
     if data.empty:
@@ -137,6 +128,12 @@ def extract_ticker_weight(df: pd.DataFrame, ticker: str) -> float | None:
     )
     return weight
 
+
+def main() -> None:
+    """Run the Streamlit application."""
+    st.set_page_config(
+        page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide"
+    )
 
     # Initialize session state
     if "history" not in st.session_state:
