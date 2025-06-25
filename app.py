@@ -57,6 +57,12 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
     period: str, optional
         Time period for historical data (e.g. "1y", "6mo").
         Included in the cache key so different periods are cached separately.
+
+    Returns
+    -------
+    pd.DataFrame | None
+        The downloaded data with a ``Return`` column, or ``None`` if an error
+        occurs or no data is returned.
     """
     try:
         data = yf.download(ticker, period=period, progress=False, group_by="column")
@@ -65,7 +71,9 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
             data = data.droplevel(0, axis=1)
     except Exception:
         return None
-    if not data.empty and "Close" in data.columns:
+    if data.empty:
+        return None
+    if "Close" in data.columns:
         data["Return"] = data["Close"].pct_change()
     return data
 
@@ -171,7 +179,7 @@ def extract_ticker_weight(df: pd.DataFrame, ticker: str) -> float | None:
         if ticker:
             # Pass the period explicitly so it becomes part of the cache key
             data = get_price_data(ticker, "6mo")
-            if data is None or data.empty or "Close" not in data.columns:
+            if data is None or "Close" not in data.columns:
                 st.info("주가 데이터를 가져올 수 없습니다. (데이터 없음/컬럼 문제)")
             else:
                 try:
