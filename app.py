@@ -32,7 +32,10 @@ def detect_ticker(text: str) -> str | None:
 def get_price_data(ticker: str) -> pd.DataFrame | None:
     """Download recent price data using yfinance."""
     try:
-        data = yf.download(ticker, period="6mo", progress=False)
+        data = yf.download(ticker, period="6mo", progress=False, group_by="column")
+        # Flatten MultiIndex columns that can result from group_by option
+        if isinstance(data.columns, pd.MultiIndex):
+            data = data.droplevel(0, axis=1)
     except Exception:
         return None
     if not data.empty and "Close" in data.columns:
