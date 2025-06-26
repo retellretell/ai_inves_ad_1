@@ -1,9 +1,13 @@
 """Improved AI Investor Advisor app with dynamic stock analysis."""
 
-import streamlit as st
+try:
+    import streamlit as st
+except ModuleNotFoundError:  # Allows tests to run without Streamlit installed
+    from streamlit_stub import StreamlitStub as st
 import pandas as pd
 import plotly.express as px
 import yfinance as yf
+
 
 def get_recommended_questions() -> list[str]:
     """Return a list of sample questions for quick access."""
@@ -16,10 +20,32 @@ def get_recommended_questions() -> list[str]:
 
 @st.cache_data
 def load_ticker_map() -> dict[str, str]:
-    """Load CSV mapping of company name variants to tickers."""
-    df = pd.read_csv("tickers.csv")
-    # Normalize name column to lowercase for matching
-    return {name.lower(): tkr for name, tkr in zip(df["name"], df["ticker"])}
+    """Load CSV mapping of company name variants to tickers.
+
+    If ``tickers.csv`` cannot be read, show an error and fall back to an example
+    mapping when possible. The app continues running with the fallback so that a
+    missing or malformed file doesn't crash the whole app.
+    """
+    example_map = {"테슬라": "TSLA", "애플": "AAPL"}
+    try:
+        df = pd.read_csv("tickers.csv")
+    except FileNotFoundError:
+        st.error("tickers.csv 파일을 찾을 수 없습니다. 기본 매핑으로 실행합니다.")
+        return example_map
+    except Exception as e:
+        st.error(f"tickers.csv를 불러오는 중 오류가 발생했습니다: {e}")
+        st.stop()
+
+    if not {"name", "ticker"}.issubset(df.columns):
+        st.error("tickers.csv에 'name'과 'ticker' 컬럼이 필요합니다.")
+        st.stop()
+
+    try:
+        return {name.lower(): tkr for name, tkr in zip(df["name"], df["ticker"])}
+    except Exception as e:
+        st.error(f"tickers.csv 포맷 오류: {e}")
+        st.stop()
+    return example_map
 
 
 # Mapping of Korean/English company names to ticker symbols loaded from CSV
@@ -57,10 +83,10 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
     """
     try:
         data = yf.download(ticker, period=period, progress=False, group_by="column")
-        # Flatten MultiIndex columns that can result from group_by option
+        # Plotly expects plain string column names. Flatten MultiIndex columns
+        # returned by yfinance and keep only the first level such as "Close".
         if isinstance(data.columns, pd.MultiIndex):
-            data.columns = data.columns.get_level_values(0)
-    except Exception:
+
         return None
     if data.empty:
         return None
@@ -73,15 +99,29 @@ def get_sample_news(ticker: str) -> list[dict[str, str]]:
     """Provide sample news for the given ticker."""
     sample_news = {
         "TSLA": [
-            {"title": "Tesla launches new model", "summary": "The new EV is expected to expand market share."},
-            {"title": "Analysts positive on Tesla", "summary": "Wall Street sees potential growth in energy business."},
+            {
+                "title": "Tesla launches new model",
+                "summary": "The new EV is expected to expand market share.",
+            },
+            {
+                "title": "Analysts positive on Tesla",
+                "summary": "Wall Street sees potential growth in energy business.",
+            },
         ],
         "AAPL": [
-            {"title": "Apple reveals new iPhone", "summary": "The device includes a faster chip and better camera."},
-            {"title": "Apple services revenue rises", "summary": "Subscription business continues to grow."},
+            {
+                "title": "Apple reveals new iPhone",
+                "summary": "The device includes a faster chip and better camera.",
+            },
+            {
+                "title": "Apple services revenue rises",
+                "summary": "Subscription business continues to grow.",
+            },
         ],
     }
-    return sample_news.get(ticker, [{"title": "관련 뉴스 없음", "summary": "표시할 뉴스가 없습니다."}])
+    return sample_news.get(
+        ticker, [{"title": "관련 뉴스 없음", "summary": "표시할 뉴스가 없습니다."}]
+    )
 
 
 def get_sample_financials(ticker: str) -> dict[str, str]:
@@ -121,26 +161,29 @@ def extract_ticker_weight(df: pd.DataFrame, ticker: str) -> float | None:
     ticker: str
         Ticker symbol to extract weight for.
     """
-    if ticker not in df["종목"].values:
+    try:
+        if ticker not in df["종목"].values:
+            return None
+        weight = pd.to_numeric(
+            df.loc[df["종목"] == ticker, "비중(%)"].iloc[0], errors="coerce"
+        )
+        return weight
+    except KeyError:
+        st.warning("포트폴리오 데이터에 필요한 컬럼이 없습니다.")
         return None
-    weight = pd.to_numeric(
-        df.loc[df["종목"] == ticker, "비중(%)"].iloc[0], errors="coerce"
-    )
-    return weight
 
 
 def main() -> None:
     """Run the Streamlit application."""
-    st.set_page_config(
-        page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide"
-    )
 
     # Initialize session state
     if "history" not in st.session_state:
         st.session_state.history = []
 
     if "portfolio" not in st.session_state:
-        st.session_state.portfolio = pd.DataFrame({"종목": ["TSLA", "AAPL"], "비중(%)": [60, 40]})
+        st.session_state.portfolio = pd.DataFrame(
+            {"종목": ["TSLA", "AAPL"], "비중(%)": [60, 40]}
+        )
 
     st.title("HyperCLOVA X 기반 AI 투자 어드바이저")
 
@@ -180,14 +223,18 @@ def main() -> None:
                 st.info("주가 데이터를 가져올 수 없습니다. (데이터 없음/컬럼 문제)")
             else:
                 try:
-                    fig_price = px.line(data, y="Close", title=f"{ticker} 최근 6개월 주가")
+                    fig_price = px.line(
+                        data, y="Close", title=f"{ticker} 최근 6개월 주가"
+                    )
                     st.plotly_chart(fig_price, use_container_width=True)
                 except Exception as e:
                     st.warning(f"주가 차트 생성 중 오류가 발생했습니다: {e}")
 
                 if "Return" in data.columns:
                     try:
-                        fig_ret = px.line(data, y="Return", title=f"{ticker} 일간 수익률")
+                        fig_ret = px.line(
+                            data, y="Return", title=f"{ticker} 일간 수익률"
+                        )
                         st.plotly_chart(fig_ret, use_container_width=True)
                     except Exception as e:
                         st.warning(f"수익률 차트 생성 중 오류가 발생했습니다: {e}")
@@ -249,18 +296,21 @@ def main() -> None:
             st.plotly_chart(fig_port, use_container_width=True)
 
             weights = (
-                pd.to_numeric(st.session_state.portfolio["비중(%)"], errors="coerce")
-                .fillna(0)
+                pd.to_numeric(
+                    st.session_state.portfolio["비중(%)"], errors="coerce"
+                ).fillna(0)
                 / 100
             )
-            risk = (weights ** 2).sum() ** 0.5
+            risk = (weights**2).sum() ** 0.5
             st.write(f"단순 위험 지표(예시): {risk:.2f}")
             tsla_weight = extract_ticker_weight(st.session_state.portfolio, "TSLA")
             if tsla_weight is None:
                 st.info("포트폴리오에 테슬라 종목이 없습니다.")
             else:
                 if pd.isna(tsla_weight):
-                    st.warning("테슬라 비중을 숫자로 변환할 수 없습니다. 0으로 처리합니다.")
+                    st.warning(
+                        "테슬라 비중을 숫자로 변환할 수 없습니다. 0으로 처리합니다."
+                    )
                     tsla_weight = 0.0
                 st.write(f"테슬라 비중: {tsla_weight}%")
                 if tsla_weight > 30:
@@ -276,4 +326,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
