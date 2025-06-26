@@ -89,8 +89,8 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
             group_by="column",
             auto_adjust=False,
         )
-    except TypeError as e:
-        if "auto_adjust" in str(e):
+    except Exception as e:
+        if isinstance(e, TypeError) and "auto_adjust" in str(e):
             try:
                 data = yf.download(
                     ticker,
@@ -102,8 +102,6 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
                 return None
         else:
             return None
-    except Exception:
-        return None
     # Plotly expects plain string column names. Flatten MultiIndex columns
     # returned by yfinance and keep only the first level such as "Close".
     if isinstance(data.columns, pd.MultiIndex):
