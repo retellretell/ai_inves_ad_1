@@ -34,17 +34,17 @@ def load_ticker_map() -> dict[str, str]:
         return example_map
     except Exception as e:
         st.error(f"tickers.csv를 불러오는 중 오류가 발생했습니다: {e}")
-        st.stop()
+        return example_map
 
     if not {"name", "ticker"}.issubset(df.columns):
         st.error("tickers.csv에 'name'과 'ticker' 컬럼이 필요합니다.")
-        st.stop()
+        return example_map
 
     try:
         return {name.lower(): tkr for name, tkr in zip(df["name"], df["ticker"])}
     except Exception as e:
         st.error(f"tickers.csv 포맷 오류: {e}")
-        st.stop()
+        return example_map
     return example_map
 
 
@@ -82,12 +82,32 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
         occurs or no data is returned.
     """
     try:
-        data = yf.download(ticker, period=period, progress=False, group_by="column")
-        # Plotly expects plain string column names. Flatten MultiIndex columns
-        # returned by yfinance and keep only the first level such as "Close".
-        if isinstance(data.columns, pd.MultiIndex):
-
+        data = yf.download(
+            ticker,
+            period=period,
+            progress=False,
+            group_by="column",
+            auto_adjust=False,
+        )
+    except TypeError as e:
+        if "auto_adjust" in str(e):
+            try:
+                data = yf.download(
+                    ticker,
+                    period=period,
+                    progress=False,
+                    group_by="column",
+                )
+            except Exception:
+                return None
+        else:
+            return None
+    except Exception:
         return None
+    # Plotly expects plain string column names. Flatten MultiIndex columns
+    # returned by yfinance and keep only the first level such as "Close".
+    if isinstance(data.columns, pd.MultiIndex):
+        data.columns = data.columns.get_level_values(1)
     if data.empty:
         return None
     if "Close" in data.columns:
