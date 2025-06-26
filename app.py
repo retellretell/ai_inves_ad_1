@@ -34,17 +34,18 @@ def load_ticker_map() -> dict[str, str]:
         return example_map
     except Exception as e:
         st.error(f"tickers.csv를 불러오는 중 오류가 발생했습니다: {e}")
-        return example_map
+        st.stop()
 
     if not {"name", "ticker"}.issubset(df.columns):
         st.error("tickers.csv에 'name'과 'ticker' 컬럼이 필요합니다.")
-        return example_map
+        st.stop()
 
     try:
         return {name.lower(): tkr for name, tkr in zip(df["name"], df["ticker"])}
     except Exception as e:
         st.error(f"tickers.csv 포맷 오류: {e}")
-        return example_map
+        st.stop()
+    return example_map
 
 
 # Mapping of Korean/English company names to ticker symbols loaded from CSV
