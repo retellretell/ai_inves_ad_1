@@ -86,14 +86,7 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
         # Plotly expects plain string column names. Flatten MultiIndex columns
         # returned by yfinance and keep only the first level such as "Close".
         if isinstance(data.columns, pd.MultiIndex):
-            cols = data.columns.get_level_values(0)
-            if "Close" not in cols and hasattr(data.columns, "get_level_values"):
-                alt = data.columns.get_level_values(-1)
-                if "Close" in alt:
-                    cols = alt
-            data.columns = cols
-    except Exception as e:
-        st.warning(f"주가 데이터를 가져오는 중 오류가 발생했습니다: {e}")
+
         return None
     if data.empty:
         return None
@@ -182,7 +175,6 @@ def extract_ticker_weight(df: pd.DataFrame, ticker: str) -> float | None:
 
 def main() -> None:
     """Run the Streamlit application."""
-    st.set_page_config(page_title="HyperCLOVA X 기반 AI 투자 어드바이저", layout="wide")
 
     # Initialize session state
     if "history" not in st.session_state:
