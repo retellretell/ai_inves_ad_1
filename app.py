@@ -115,7 +115,8 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
         # Plotly expects plain string column names. Flatten MultiIndex columns
         # returned by yfinance and keep only the first level such as "Close".
         if isinstance(data.columns, pd.MultiIndex):
-            data.columns = data.columns.get_level_values(0)
+            # Keep only the price field level such as "Open" or "Close"
+            data.columns = [c[1] if isinstance(c, tuple) else c for c in data.columns]
     except Exception as e:
         st.warning(f"주가 데이터를 가져오는 중 오류가 발생했습니다: {e}")
         return None
