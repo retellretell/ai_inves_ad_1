@@ -52,8 +52,9 @@ def get_recommended_questions() -> list[str]:
 def load_ticker_map() -> dict[str, str]:
     """Load CSV mapping of company name variants to tickers.
 
-    If ``tickers.csv`` cannot be read, show an error and either stop the app or
-    fall back to an example mapping when possible.
+    If ``tickers.csv`` cannot be read, show an error and fall back to an example
+    mapping when possible. The app continues running with the fallback so that a
+    missing or malformed file doesn't crash the whole app.
     """
     example_map = {"테슬라": "TSLA", "애플": "AAPL"}
     try:
@@ -63,17 +64,17 @@ def load_ticker_map() -> dict[str, str]:
         return example_map
     except Exception as e:
         st.error(f"tickers.csv를 불러오는 중 오류가 발생했습니다: {e}")
-        st.stop()
+        return example_map
 
     if not {"name", "ticker"}.issubset(df.columns):
         st.error("tickers.csv에 'name'과 'ticker' 컬럼이 필요합니다.")
-        st.stop()
+        return example_map
 
     try:
         return {name.lower(): tkr for name, tkr in zip(df["name"], df["ticker"])}
     except Exception as e:
         st.error(f"tickers.csv 포맷 오류: {e}")
-        st.stop()
+        return example_map
 
 
 # Mapping of Korean/English company names to ticker symbols loaded from CSV
