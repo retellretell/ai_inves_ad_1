@@ -86,7 +86,8 @@ def get_price_data(ticker: str, period: str = "6mo") -> pd.DataFrame | None:
         # Plotly expects plain string column names. Flatten MultiIndex columns
         # returned by yfinance and keep only the first level such as "Close".
         if isinstance(data.columns, pd.MultiIndex):
-
+            data.columns = data.columns.get_level_values(1)
+    except Exception:
         return None
     if data.empty:
         return None
